@@ -1,0 +1,37 @@
+import csv
+import json
+import os
+
+def create_test_data():
+    """Создание тестовых файлов для работы"""
+    
+    purchases = [
+        '{"user_id": "1840e0b9d4", "category": "Продукты"}',
+        '{"user_id": "4e4f90fcfb", "category": "Электроника"}',
+        '{"user_id": "abc123def45", "category": "Одежда"}',
+        '{"user_id": "789xyz12345", "category": "Книги"}',
+    ]
+    
+    visits = [
+        "user_id,source",
+        "1840e0b9d4,other",
+        "9999999999,direct",
+        "4e4f90fcfb,context",
+        "abc123def45,email",
+        "1111111111,social",
+        "789xyz12345,referral",
+        "1840e0b9d4,organic",
+    ]
+    
+    with open('purchase_log.txt', 'w', encoding='utf-8') as f:
+        for purchase in purchases:
+            f.write(purchase + '\n')
+    
+    with open('visit_log.csv', 'w', encoding='utf-8', newline='') as f:
+        f.write('\n'.join(visits))
+    
+    print("Тестовые файлы созданы!")
+    print(f"purchase_log.txt: {len(purchases)} записей")
+    print(f"visit_log.csv: {len(visits)} строк")
+
+create_test_data()
