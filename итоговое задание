@@ -1,0 +1,483 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <map>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+class Product {
+protected:
+    int article;
+    string name;
+    double price;
+    int quantity;
+    string category;
+
+public:
+    Product() : article(0), price(0), quantity(0) {}
+    Product(int a, string n, double p, int q, string c) 
+        : article(a), name(n), price(p), quantity(q), category(c) {}
+
+    virtual ~Product() {}
+
+    int getArticle() const { return article; }
+    string getName() const { return name; }
+    double getPrice() const { return price; }
+    int getQuantity() const { return quantity; }
+    string getCategory() const { return category; }
+    
+    void setQuantity(int q) { quantity = q; }
+    void reduceQuantity(int q) { 
+        if (quantity >= q) quantity -= q;
+    }
+
+    virtual void display() const {
+        cout << "Артикул: " << article << ", Наименование: " << name 
+             << ", Цена: " << price << ", Количество: " << quantity;
+    }
+
+    virtual double getTotalCost() const {
+        return price * quantity;
+    }
+};
+
+class Clothing : public Product {
+private:
+    string size;
+    string color;
+
+public:
+    Clothing() : Product() {}
+    Clothing(int a, string n, double p, int q, string s, string c)
+        : Product(a, n, p, q, "Одежда"), size(s), color(c) {}
+
+    void display() const override {
+        Product::display();
+        cout << ", Размер: " << size << ", Цвет: " << color << endl;
+    }
+};
+
+class Electronics : public Product {
+private:
+    string model;
+    string manufacturer;
+
+public:
+    Electronics() : Product() {}
+    Electronics(int a, string n, double p, int q, string m, string man)
+        : Product(a, n, p, q, "Электроника"), model(m), manufacturer(man) {}
+
+    void display() const override {
+        Product::display();
+        cout << ", Модель: " << model << ", Производитель: " << manufacturer << endl;
+    }
+};
+
+class Book : public Product {
+private:
+    string author;
+    string publisher;
+
+public:
+    Book() : Product() {}
+    Book(int a, string n, double p, int q, string auth, string pub)
+        : Product(a, n, p, q, "Книги"), author(auth), publisher(pub) {}
+
+    void display() const override {
+        Product::display();
+        cout << ", Автор: " << author << ", Издательство: " << publisher << endl;
+    }
+};
+
+class Customer {
+private:
+    string fullName;
+    string cardNumber;
+    double balance;
+    vector<pair<int, int>> orders;
+
+public:
+    Customer() : balance(0) {}
+    Customer(string name, string card, double bal) 
+        : fullName(name), cardNumber(card), balance(bal) {}
+
+    string getCardNumber() const { return cardNumber; }
+    string getFullName() const { return fullName; }
+    double getBalance() const { return balance; }
+    void setBalance(double b) { balance = b; }
+    
+    void addOrder(int article, int quantity) {
+        orders.push_back({article, quantity});
+    }
+
+    vector<pair<int, int>>& getOrders() { return orders; }
+    const vector<pair<int, int>>& getOrders() const { return orders; }
+    
+    void clearOrders() { orders.clear(); }
+
+    double getTotalOrderCost(const map<int, Product*>& products) const {
+        double total = 0;
+        for (const auto& order : orders) {
+            auto it = products.find(order.first);
+            if (it != products.end()) {
+                total += it->second->getPrice() * order.second;
+            }
+        }
+        return total;
+    }
+
+    void display() const {
+        cout << "ФИО: " << fullName << ", Карта: " << cardNumber 
+             << ", Баланс: " << balance << endl;
+    }
+};
+
+class Marketplace {
+private:
+    map<int, Product*> products;
+    vector<Customer> customers;
+    vector<Customer> waitingList;
+    map<int, int> reservedProducts;
+    double discountThreshold;
+    double discountPercent;
+    vector<string> messages;
+
+    vector<string> parseCSV(const string& line) {
+        vector<string> tokens;
+        stringstream ss(line);
+        string token;
+        while (getline(ss, token, ',')) {
+            tokens.push_back(token);
+        }
+        return tokens;
+    }
+
+    void loadProducts() {
+        ifstream file("Товары.csv");
+        if (!file.is_open()) {
+            cout << "Ошибка: не удалось открыть файл Товары.csv" << endl;
+            return;
+        }
+
+        string line;
+        getline(file, line);
+        
+        while (getline(file, line)) {
+            vector<string> tokens = parseCSV(line);
+            if (tokens.size() < 7) continue;
+
+            int article = stoi(tokens[0]);
+            string name = tokens[1];
+            string category = tokens[2];
+            double price = stod(tokens[3]);
+            int quantity = stoi(tokens[4]);
+
+            if (category == "Одежда") {
+                string size = tokens[5];
+                string color = tokens[6];
+                products[article] = new Clothing(article, name, price, quantity, size, color);
+            }
+            else if (category == "Электроника") {
+                string model = tokens[5];
+                string manufacturer = tokens[6];
+                products[article] = new Electronics(article, name, price, quantity, model, manufacturer);
+            }
+            else if (category == "Книги") {
+                string author = tokens[5];
+                string publisher = tokens[6];
+                products[article] = new Book(article, name, price, quantity, author, publisher);
+            }
+        }
+        file.close();
+    }
+
+    void loadCustomers() {
+        ifstream file("Покупатели.csv");
+        if (!file.is_open()) {
+            cout << "Ошибка: не удалось открыть файл Покупатели.csv" << endl;
+            return;
+        }
+
+        string line;
+        getline(file, line);
+        
+        while (getline(file, line)) {
+            vector<string> tokens = parseCSV(line);
+            if (tokens.size() < 3) continue;
+
+            string fullName = tokens[0];
+            string cardNumber = tokens[1];
+            double balance = stod(tokens[2]);
+            
+            customers.push_back(Customer(fullName, cardNumber, balance));
+        }
+        file.close();
+    }
+
+    void loadOrders() {
+        ifstream file("Покупки.csv");
+        if (!file.is_open()) {
+            cout << "Ошибка: не удалось открыть файл Покупки.csv" << endl;
+            return;
+        }
+
+        string line;
+        getline(file, line);
+        
+        while (getline(file, line)) {
+            vector<string> tokens = parseCSV(line);
+            if (tokens.size() < 4) continue;
+
+            string cardNumber = tokens[1];
+            int article = stoi(tokens[2]);
+            int quantity = stoi(tokens[3]);
+
+            for (auto& customer : customers) {
+                if (customer.getCardNumber() == cardNumber) {
+                    customer.addOrder(article, quantity);
+                    break;
+                }
+            }
+        }
+        file.close();
+    }
+
+    double applyDiscount(double amount) const {
+        if (amount > discountThreshold) {
+            return amount * (1 - discountPercent / 100.0);
+        }
+        return amount;
+    }
+
+    void optimizeCart(Customer& customer, vector<pair<int, int>>& cart, double maxAmount) {
+        double currentTotal = 0;
+        for (const auto& item : cart) {
+            auto it = products.find(item.first);
+            if (it != products.end()) {
+                currentTotal += it->second->getPrice() * item.second;
+            }
+        }
+
+        if (currentTotal <= maxAmount) return;
+
+        sort(cart.begin(), cart.end(), [this](const pair<int, int>& a, const pair<int, int>& b) {
+            double priceA = this->products[a.first]->getPrice();
+            double priceB = this->products[b.first]->getPrice();
+            return priceA < priceB;
+        });
+
+        while (!cart.empty() && currentTotal > maxAmount) {
+            auto& item = cart.back();
+            double itemPrice = products[item.first]->getPrice();
+            int removeQty = min(item.second, (int)ceil((currentTotal - maxAmount) / itemPrice) + 1);
+            
+            if (removeQty >= item.second) {
+                currentTotal -= itemPrice * item.second;
+                cart.pop_back();
+            } else {
+                item.second -= removeQty;
+                currentTotal -= itemPrice * removeQty;
+            }
+        }
+    }
+
+public:
+    Marketplace() : discountThreshold(0), discountPercent(0) {}
+
+    ~Marketplace() {
+        for (auto& pair : products) {
+            delete pair.second;
+        }
+    }
+
+    void initialize() {
+        cout << "Введите пороговую сумму для скидки (S): ";
+        cin >> discountThreshold;
+        cout << "Введите процент скидки (p): ";
+        cin >> discountPercent;
+
+        loadProducts();
+        loadCustomers();
+        loadOrders();
+
+        cout << "\nДанные загружены успешно!" << endl;
+        cout << "Загружено товаров: " << products.size() << endl;
+        cout << "Загружено покупателей: " << customers.size() << endl;
+    }
+
+    void processOrders() {
+        cout << "\n=== ОБРАБОТКА ЗАКАЗОВ ===" << endl;
+
+        for (auto& customer : customers) {
+            if (customer.getOrders().empty()) continue;
+
+            cout << "\nОбработка заказов для: " << customer.getFullName() << endl;
+            
+            vector<pair<int, int>> cart = customer.getOrders();
+            bool hasChanges = false;
+            string message = "";
+
+            vector<pair<int, int>> availableCart;
+            for (const auto& item : cart) {
+                auto it = products.find(item.first);
+                if (it != products.end() && it->second->getQuantity() >= item.second) {
+                    availableCart.push_back(item);
+                } else {
+                    hasChanges = true;
+                    message += "Товар с артикулом " + to_string(item.first) + " отсутствует в нужном количестве.\n";
+                }
+            }
+
+            if (availableCart.empty()) {
+                cout << "Нет доступных товаров для покупателя " << customer.getFullName() << endl;
+                waitingList.push_back(customer);
+                continue;
+            }
+
+            double totalCost = 0;
+            for (const auto& item : availableCart) {
+                auto it = products.find(item.first);
+                if (it != products.end()) {
+                    totalCost += it->second->getPrice() * item.second;
+                }
+            }
+            double discountedCost = applyDiscount(totalCost);
+
+            if (discountedCost > customer.getBalance()) {
+                hasChanges = true;
+                message += "Недостаточно средств. Баланс: " + to_string(customer.getBalance()) + 
+                          ", Стоимость со скидкой: " + to_string(discountedCost) + "\n";
+                
+                optimizeCart(customer, availableCart, customer.getBalance());
+                
+                if (availableCart.empty()) {
+                    cout << "Покупатель не может оплатить ни один товар" << endl;
+                    continue;
+                }
+            }
+
+            if (!availableCart.empty()) {
+                double finalCost = 0;
+                for (const auto& item : availableCart) {
+                    auto it = products.find(item.first);
+                    if (it != products.end()) {
+                        int qty = item.second;
+                        it->second->reduceQuantity(qty);
+                        finalCost += it->second->getPrice() * qty;
+                        reservedProducts[item.first] += qty;
+                    }
+                }
+                finalCost = applyDiscount(finalCost);
+                customer.setBalance(customer.getBalance() - finalCost);
+                
+                cout << "Покупка выполнена! Списанная сумма: " << finalCost << endl;
+                customer.clearOrders();
+                
+                if (hasChanges) {
+                    message += "Заказ выполнен с изменениями. Удалены некоторые товары.";
+                    waitingList.push_back(customer);
+                    messages.push_back("Сообщение для " + customer.getFullName() + ":\n" + message);
+                }
+            }
+        }
+    }
+
+    void analyzeRevenue() const {
+        cout << "\n=== АНАЛИЗ ВЫРУЧКИ ПО КАТЕГОРИЯМ ===" << endl;
+        
+        map<string, double> revenueByCategory;
+        double totalRevenue = 0;
+        
+        for (const auto& pair : products) {
+            const Product* product = pair.second;
+            revenueByCategory[product->getCategory()] += product->getTotalCost();
+            totalRevenue += product->getTotalCost();
+        }
+
+        string topCategory = "";
+        double maxRevenue = 0;
+        for (const auto& pair : revenueByCategory) {
+            cout << pair.first << ": " << pair.second << " руб." << endl;
+            if (pair.second > maxRevenue) {
+                maxRevenue = pair.second;
+                topCategory = pair.first;
+            }
+        }
+        
+        cout << "\nКатегория с наибольшей выручкой: " << topCategory 
+             << " (" << maxRevenue << " руб.)" << endl;
+        cout << "Общая выручка: " << totalRevenue << " руб." << endl;
+    }
+
+    void displayWaitingList() const {
+        cout << "\n=== ОЧЕРЕДЬ ПОКУПАТЕЛЕЙ (ОЖИДАНИЕ) ===" << endl;
+        if (waitingList.empty()) {
+            cout << "Очередь ожидания пуста" << endl;
+            return;
+        }
+        
+        for (const auto& customer : waitingList) {
+            customer.display();
+        }
+    }
+
+    void displayReservedProducts() const {
+        cout << "\n=== ЗАРЕЗЕРВИРОВАННЫЕ ТОВАРЫ ===" << endl;
+        if (reservedProducts.empty()) {
+            cout << "Нет зарезервированных товаров" << endl;
+            return;
+        }
+        
+        for (const auto& pair : reservedProducts) {
+            auto it = products.find(pair.first);
+            if (it != products.end()) {
+                cout << "Артикул " << pair.first << " (" << it->second->getName() 
+                     << "): " << pair.second << " шт." << endl;
+            }
+        }
+    }
+
+    void displayRepeatMessages() const {
+        cout << "\n=== ПОВТОРНЫЕ СООБЩЕНИЯ ===" << endl;
+        if (messages.empty()) {
+            cout << "Нет сообщений для отправки" << endl;
+            return;
+        }
+        
+        for (const auto& msg : messages) {
+            cout << "ПОВТОРНОЕ: " << msg << endl;
+            cout << "------------------------" << endl;
+        }
+    }
+
+    void run() {
+        initialize();
+        
+        if (customers.empty() || products.empty()) {
+            cout << "Недостаточно данных для работы. Проверьте CSV файлы." << endl;
+            return;
+        }
+
+        processOrders();
+        analyzeRevenue();
+        displayWaitingList();
+        displayReservedProducts();
+        displayRepeatMessages();
+    }
+};
+
+int main() {
+    setlocale(LC_ALL, "Russian");
+    
+    Marketplace marketplace;
+    marketplace.run();
+    
+    cout << "\nПрограмма завершена." << endl;
+    system("pause");
+    return 0;
+}
